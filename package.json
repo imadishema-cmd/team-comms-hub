@@ -1,6 +1,6 @@
 {
   "name": "zipline-comms-hub",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,5 +13,7 @@
   "devDependencies": {
     "netlify-cli": "^23.7.3"
   },
-  "engines": {"node": ">=18"}
+  "engines": {
+    "node": ">=18"
+  }
 }

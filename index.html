@@ -3,39 +3,45 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#f7f6f1" />
+  <meta name="theme-color" content="#f3efe5" />
   <title>Zipline Team Comms Hub</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="accessGate" class="gate hidden">
-    <form id="accessForm" class="gate-card">
-      <div class="brand-mark">ZIPLINE</div>
-      <h1>Team Comms Hub</h1>
-      <p>Enter the workspace access code.</p>
-      <input id="accessCode" type="password" placeholder="Access code" autocomplete="current-password" required />
-      <button class="btn primary" type="submit">Enter workspace</button>
-      <p id="accessError" class="error"></p>
-    </form>
+    <div class="gate-card">
+      <img class="gate-logo" src="https://www.zipline.com/_next/image?q=75&url=https%3A%2F%2Fa-us.storyblok.com%2Ff%2F1003963%2F768x560%2F6b42f40fcf%2Flogo-thumbnail.png&w=3840" alt="Zipline" />
+      <p class="eyebrow">INTERNAL COMMUNICATIONS</p>
+      <h1>Know what changed.</h1>
+      <p class="muted">Enter your name and workspace code to continue.</p>
+      <form id="accessForm" class="gate-form">
+        <label>Name<input id="displayName" type="text" autocomplete="name" placeholder="Your name" required /></label>
+        <label>Workspace code<input id="accessCode" type="password" autocomplete="current-password" placeholder="Access code" /></label>
+        <button class="btn primary" type="submit">Enter workspace</button>
+        <p id="accessError" class="error"></p>
+      </form>
+    </div>
   </div>
 
-  <div id="appShell" class="app-shell">
+  <div class="app-shell">
     <aside class="sidebar">
-      <div>
-        <div class="brand-lockup"><div class="brand-mark">ZIPLINE</div><span>Team Comms</span></div>
+      <div class="side-top">
+        <div class="logo-card">
+          <img src="https://www.zipline.com/_next/image?q=75&url=https%3A%2F%2Fa-us.storyblok.com%2Ff%2F1003963%2F768x560%2F6b42f40fcf%2Flogo-thumbnail.png&w=3840" alt="Zipline" />
+        </div>
+        <div class="product-name">Team Comms</div>
         <nav>
           <button class="nav-item active" data-view="home">Overview</button>
           <button class="nav-item" data-view="updates">Updates</button>
           <button class="nav-item" data-view="knowledge">Knowledge</button>
           <button class="nav-item" data-view="decisions">Decisions</button>
+          <button class="nav-item" data-view="activity">Activity</button>
         </nav>
       </div>
       <div class="sidebar-footer">
         <div class="live-dot"><span></span> Shared workspace</div>
-        <small>Powered by Netlify Blobs</small>
+        <small id="roleLabel">Checking access…</small>
+        <button id="switchUser" class="text-btn light">Switch user</button>
       </div>
     </aside>
 
@@ -46,48 +52,73 @@
           <h1 id="viewTitle">What changed?</h1>
         </div>
         <div class="top-actions">
-          <div class="search-wrap"><input id="globalSearch" type="search" placeholder="Search updates, docs, decisions…" /></div>
-          <button id="newItemBtn" class="btn primary">+ New update</button>
+          <div class="search-wrap"><input id="globalSearch" type="search" placeholder="Search updates, knowledge, decisions…" /></div>
+          <button id="newItemBtn" class="btn primary editor-only">+ New update</button>
         </div>
       </header>
 
       <section id="homeView" class="view active">
         <div class="hero-card">
-          <div><p class="eyebrow">TEAM SIGNAL</p><h2>Know what matters.<br/>Find it fast.</h2></div>
-          <p>One durable place for live updates, operating knowledge, and decisions—built for teams that move quickly.</p>
+          <div class="hero-copy">
+            <p class="eyebrow light-text">TEAM SIGNAL</p>
+            <h2>Move fast.<br/>Stay aligned.</h2>
+            <p>One durable source for live updates, operating knowledge, and decisions.</p>
+          </div>
+          <div class="hero-media" aria-label="Zipline drone over a residential area">
+            <img src="https://www.zipline.com/_next/image?dpl=dpl_APCCfabc2rs9BRdStixGMKg5n9bS&q=75&url=%2Fimages%2Fsolutions%2Finternational%2Fdeliver%2Ftraceability.jpg&w=1200" alt="Zipline drone flying over a residential town" />
+          </div>
         </div>
+
         <div class="stats" id="stats"></div>
+
         <div class="grid-two">
           <section class="panel"><div class="panel-head"><h3>Latest updates</h3><button class="text-btn" data-jump="updates">View all</button></div><div id="latestUpdates" class="list"></div></section>
           <section class="panel"><div class="panel-head"><h3>Needs attention</h3><span class="pill amber">Review queue</span></div><div id="reviewQueue" class="list"></div></section>
         </div>
+
         <section class="panel"><div class="panel-head"><h3>Recently changed knowledge</h3><button class="text-btn" data-jump="knowledge">Open library</button></div><div id="recentDocs" class="cards"></div></section>
       </section>
 
       <section id="updatesView" class="view">
-        <div class="section-tools"><div class="filter-group"><button class="chip active" data-filter="all">All</button><button class="chip" data-filter="Critical">Critical</button><button class="chip" data-filter="High">High</button><button class="chip" data-filter="Active">Active</button></div><button class="btn secondary" data-create="updates">+ Add update</button></div>
+        <div class="section-tools"><div class="filter-group"><button class="chip active" data-filter="all">All</button><button class="chip" data-filter="Critical">Critical</button><button class="chip" data-filter="High">High</button><button class="chip" data-filter="Active">Active</button></div><button class="btn secondary editor-only" data-create="updates">+ Add update</button></div>
         <div id="updatesList" class="timeline"></div>
       </section>
 
       <section id="knowledgeView" class="view">
-        <div class="section-tools"><p class="muted">Living pages for SOPs, references, FAQs, and project context.</p><button class="btn secondary" data-create="docs">+ New page</button></div>
+        <div class="section-tools"><p class="muted">Living SOPs, references, FAQs, project context, and linked Drive resources.</p><button class="btn secondary editor-only" data-create="docs">+ New page</button></div>
         <div id="docsGrid" class="cards knowledge-grid"></div>
       </section>
 
       <section id="decisionsView" class="view">
-        <div class="section-tools"><p class="muted">Record the decision, why it was made, and what changes because of it.</p><button class="btn secondary" data-create="decisions">+ Record decision</button></div>
+        <div class="section-tools"><p class="muted">Record what was decided, why, and what changes because of it.</p><button class="btn secondary editor-only" data-create="decisions">+ Record decision</button></div>
         <div id="decisionsList" class="decision-list"></div>
+      </section>
+
+      <section id="activityView" class="view">
+        <div class="panel"><div class="panel-head"><h3>Change history</h3><span class="pill">Audit trail</span></div><div id="activityList" class="activity-list"></div></div>
       </section>
 
       <section id="searchView" class="view"><div class="panel"><div class="panel-head"><h3>Search results</h3><span id="searchCount" class="pill"></span></div><div id="searchResults" class="list"></div></div></section>
     </main>
   </div>
 
+  <dialog id="detailModal" class="detail-dialog">
+    <div class="detail-shell">
+      <button type="button" class="icon-btn modal-close" id="closeDetail">×</button>
+      <div id="detailBody"></div>
+      <div class="detail-actions">
+        <button id="ackBtn" class="btn secondary hidden">✓ I’ve read this</button>
+        <span></span>
+        <button id="editDetail" class="btn primary editor-only">Edit</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="editorModal">
-    <form id="editorForm" method="dialog">
+    <form id="editorForm">
       <div class="modal-head"><div><p class="eyebrow" id="modalEyebrow">NEW</p><h2 id="modalTitle">Create update</h2></div><button type="button" class="icon-btn" id="closeModal">×</button></div>
       <div id="formFields"></div>
-      <div class="modal-actions"><button type="button" class="btn ghost" id="deleteItem">Delete</button><span></span><button type="button" class="btn secondary" id="cancelModal">Cancel</button><button type="submit" class="btn primary">Save</button></div>
+      <div class="modal-actions"><button type="button" class="btn danger editor-only" id="deleteItem">Delete</button><span></span><button type="button" class="btn secondary" id="cancelModal">Cancel</button><button type="submit" class="btn primary editor-only">Save</button></div>
     </form>
   </dialog>
 

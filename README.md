@@ -1,41 +1,44 @@
-# Zipline Team Comms Hub
+# Zipline Team Comms Hub — V2
 
-A Chromebook-friendly, Netlify-hosted internal communications hub inspired by Zipline's public website: bold typography, warm off-white surfaces, strong red accents, rounded UI, and concise copy.
+A Chromebook-friendly internal communications hub deployed on Netlify. V2 keeps the existing Netlify Blobs store (`team-comms-hub-v1`) so data created in V1 remains available after deployment.
 
-## What is included
+## What V2 adds
 
-- Shared real-time updates feed
-- Living knowledge pages / SOPs / FAQs / project context
-- Decision log
-- Search across all content
-- Review-date queue
-- Priority and status filtering
-- Create, edit, and delete from the browser
-- Responsive Chromebook/mobile UI
-- Persistent shared data using Netlify Blobs (no separate database account)
-- Optional shared access code
+- Reader/editor access modes
+- Read acknowledgements on updates
+- Edit and delete controls restricted to editors
+- Audit/activity trail
+- Per-item revision history stored in Blobs
+- Related resource links (Google Drive, Docs, tickets, etc.)
+- Review queue and unread/review dashboard metric
+- Search across updates, knowledge, and decisions
+- Official Zipline logo/photography references sourced only from Zipline-owned web properties
+- Visual direction aligned to Zipline's public site: warm cream surfaces, high-contrast black, vivid orange-red, rounded cards, large direct headlines
 
-## Deploy on Netlify (recommended: Git import)
+## Netlify deployment
 
-1. Put this folder in a GitHub repository.
-2. In Netlify choose **Add new project → Import an existing project**.
-3. Select the repository.
-4. Netlify reads `netlify.toml`; accept the defaults and deploy.
-5. Optional security: in **Project configuration → Environment variables**, add `TEAM_ACCESS_CODE` with a strong shared code, then redeploy.
+Push these files to the same GitHub repository. Netlify will redeploy automatically.
 
-No database setup is required. Netlify Blobs is created automatically on first use.
+The required server function must remain at:
 
-## Local preview (optional)
+`netlify/functions/api.mjs`
 
-```bash
-npm install
-npm run dev
-```
+## Access control (important before sensitive use)
 
-## Important security note
+In Netlify → Project configuration → Environment variables, add:
 
-The optional access code is appropriate for a lightweight internal pilot, but it is not enterprise SSO. For a production deployment containing sensitive company information, put the site behind your organization's approved identity layer or Netlify's enterprise SSO/access controls.
+- `TEAM_EDITOR_CODE` — editors can create, edit, and delete
+- `TEAM_VIEW_CODE` — readers can browse and acknowledge updates
 
-## Branding note
+For backwards compatibility, an existing `TEAM_ACCESS_CODE` is treated as an editor code.
 
-This project uses original UI code and text-only branding inspired by the visual direction of Zipline's public website. It does not bundle proprietary Zipline image or font assets.
+If no access variables are configured, the app remains in pilot mode and grants editor access. Configure the codes before storing sensitive internal content.
+
+## Official brand assets used
+
+The UI references media served by Zipline's official website and brand-guidelines page only:
+
+- Zipline logo thumbnail from Zipline's official Logos & Brand Guidelines page
+- Zipline drone imagery from Zipline's official Solutions for Governments page
+
+No third-party stock photography or non-Zipline logo assets are included.
