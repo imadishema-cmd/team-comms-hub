@@ -1,0 +1,17 @@
+{
+  "name": "zipline-comms-hub",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'Static site: no build step'"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^9.1.2"
+  },
+  "devDependencies": {
+    "netlify-cli": "^23.7.3"
+  },
+  "engines": {"node": ">=18"}
+}
