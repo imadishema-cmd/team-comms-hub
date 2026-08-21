@@ -15,7 +15,7 @@ const json = (data,status=200,extra={}) => new Response(JSON.stringify(data),{st
 const defaultContent = {
   updates: [], docs: [], decisions: [], activity: [], groups: [], courses: [], quizzes: [], questionBank: [], resources: []
 };
-const defaultAuth = {users:[],sessions:{},progress:{},quizSessions:{},passwordResetRequests:[]};
+const defaultAuth = {users:[],sessions:{},progress:{},quizSessions:{},passwordResetRequests:[],notificationReads:{}};
 
 function hashPassword(password,salt=crypto.randomBytes(16).toString('hex')){
   const hash=crypto.scryptSync(password,salt,64).toString('hex');
@@ -109,28 +109,30 @@ function assignedCourse(course,user){
 }
 function notificationList(content,auth,user){
   const p=userProgress(auth,user.id); const items=[];
+  auth.notificationReads ||= {}; auth.notificationReads[user.id] ||= {};
+  const seen=auth.notificationReads[user.id];
   for(const u of content.updates.filter(x=>visibleItem(x,user)&&targetMatches(x,user)&&x.status==='Active')){
     const read=arr(u.acknowledgements).some(a=>a.userId===user.id || (!a.userId&&a.name===user.name));
     if(u.mandatory&&!read)items.push({id:`update:${u.id}`,type:'mandatory',title:'Acknowledgement required',text:u.title,view:'communications',itemId:u.id,priority:u.priority||'High'});
   }
   for(const d of content.docs.filter(x=>visibleItem(x,user)&&targetMatches(x,user))){
-    if(d.reviewDate && new Date(d.reviewDate) < new Date(Date.now()+14*864e5)) items.push({id:`doc:${d.id}`,type:'review',title:'Knowledge review due',text:d.title,view:'knowledge',itemId:d.id,priority:new Date(d.reviewDate)<new Date()?'High':'Normal'});
+    if(d.reviewDate && new Date(d.reviewDate) < new Date(Date.now()+14*864e5)) items.push({id:`doc:${d.id}:${d.reviewDate||''}`,type:'review',title:'Knowledge review due',text:d.title,view:'knowledge',itemId:d.id,priority:new Date(d.reviewDate)<new Date()?'High':'Normal'});
   }
   for(const u of content.updates.filter(x=>visibleItem(x,user)&&targetMatches(x,user))){
-    if(u.reviewDate && new Date(u.reviewDate) < new Date(Date.now()+14*864e5)) items.push({id:`review:${u.id}`,type:'review',title:'Communication review due',text:u.title,view:'communications',itemId:u.id,priority:new Date(u.reviewDate)<new Date()?'High':'Normal'});
+    if(u.reviewDate && new Date(u.reviewDate) < new Date(Date.now()+14*864e5)) items.push({id:`review:${u.id}:${u.reviewDate||''}`,type:'review',title:'Communication review due',text:u.title,view:'communications',itemId:u.id,priority:new Date(u.reviewDate)<new Date()?'High':'Normal'});
   }
   for(const c of content.courses.filter(x=>assignedCourse(x,user))){
     const cp=computeCourseProgress(c,p); if(cp.completed)continue;
-    if(c.dueDate && new Date(c.dueDate)<new Date()) items.push({id:`course:${c.id}`,type:'overdue',title:'Learning overdue',text:c.title,view:'learning',itemId:c.id,priority:'High'});
-    else items.push({id:`course:${c.id}`,type:'learning',title:'Learning assigned',text:c.title,view:'learning',itemId:c.id,priority:'Normal'});
+    if(c.dueDate && new Date(c.dueDate)<new Date()) items.push({id:`course:${c.id}:${c.dueDate||'assigned'}`,type:'overdue',title:'Learning overdue',text:c.title,view:'learning',itemId:c.id,priority:'High'});
+    else items.push({id:`course:${c.id}:${c.dueDate||'assigned'}`,type:'learning',title:'Learning assigned',text:c.title,view:'learning',itemId:c.id,priority:'Normal'});
   }
   if(isAdmin(user)){
     const approvals=[...content.updates,...content.docs,...content.decisions].filter(x=>x.approvalStatus==='pending').length;
-    if(approvals)items.push({id:'approvals',type:'admin',title:'Content awaiting approval',text:`${approvals} item${approvals===1?'':'s'} need review.`,view:'admin',priority:'High'});
+    if(approvals)items.push({id:`approvals:${approvals}:${[...content.updates,...content.docs,...content.decisions].filter(x=>x.approvalStatus==='pending').map(x=>x.updatedAt||x.createdAt||'').sort().at(-1)||''}`,type:'admin',title:'Content awaiting approval',text:`${approvals} item${approvals===1?'':'s'} need review.`,view:'admin',priority:'High'});
     const pending=auth.users.filter(x=>x.status==='pending').length;
-    if(pending)items.push({id:'users',type:'admin',title:'Account approvals',text:`${pending} account${pending===1?'':'s'} waiting.`,view:'admin',priority:'Normal'});
+    if(pending)items.push({id:`users:${pending}:${auth.users.filter(x=>x.status==='pending').map(x=>x.createdAt||'').sort().at(-1)||''}`,type:'admin',title:'Account approvals',text:`${pending} account${pending===1?'':'s'} waiting.`,view:'admin',priority:'Normal'});
   }
-  return items;
+  return items.filter(x=>!seen[x.id]);
 }
 function sanitizeWorkspace(content,auth,user){
   const p=userProgress(auth,user.id);
@@ -203,6 +205,15 @@ export default async req=>{
       const b=await req.json();const item=content.updates.find(x=>x.id===b.updateId);if(!item||!visibleItem(item,user)||!targetMatches(item,user))return json({error:'Update not found.'},404);
       item.acknowledgements ||= []; if(!item.acknowledgements.some(a=>a.userId===user.id))item.acknowledgements.push({userId:user.id,name:user.name,email:user.email,at:now()});
       audit(content,'acknowledged','updates',item.title,user);await writeJSON(contentStore,'workspace',content);return json({ok:true,data:sanitizeWorkspace(content,auth,user)});
+    }
+
+    if(req.method==='POST'&&path==='notifications/read'){
+      const b=await req.json(); auth.notificationReads ||= {}; auth.notificationReads[user.id] ||= {};
+      const current=notificationList(content,auth,user);
+      if(b.all){ for(const n of current) auth.notificationReads[user.id][n.id]=now(); }
+      else if(b.id){ auth.notificationReads[user.id][clean(b.id,500)]=now(); }
+      await writeJSON(authStore,'auth',auth);
+      return json({ok:true,data:sanitizeWorkspace(content,auth,user)});
     }
 
     if(req.method==='POST'&&path==='item'){
