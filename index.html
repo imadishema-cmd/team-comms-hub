@@ -90,13 +90,18 @@
           <div class="hero-copy"><span class="eyebrow light">TEAM SIGNAL</span><h2>Know what matters.<br>Find it fast.</h2><p>Live communications, operating knowledge, and learning built for a team that moves quickly.</p></div>
           <div class="hero-image" aria-label="Official Zipline website imagery"></div>
         </div>
-        <div id="homeStats" class="stats-grid"></div>
-        <div id="pinnedArea" class="section-card purple-tint"><div class="section-heading"><div><span class="eyebrow">PINNED</span><h3>Important now</h3></div><button class="text-btn" data-jump="communications">View communications →</button></div><div id="pinnedUpdates"></div></div>
-        <div class="dashboard-grid">
+        <section class="zipline-media-strip reveal" aria-label="Zipline visual highlights">
+          <article class="media-tile media-photo"><div class="media-caption"><span>ZIPLINE</span><strong>Motion with purpose.</strong></div></article>
+          <article class="media-tile"><video autoplay muted loop playsinline preload="metadata" aria-label="Official Zipline medical delivery footage"><source src="https://a-us.storyblok.com/f/1003963/x/8a10db9118/scotts-pharma_x.mp4" type="video/mp4"></video><div class="media-caption"><span>MEDICAL LOGISTICS</span><strong>Built for moments that matter.</strong></div></article>
+          <article class="media-tile"><video autoplay muted loop playsinline preload="metadata" aria-label="Official Zipline fleet footage"><source src="https://a-us.storyblok.com/f/1003963/x/2a95878cf5/39-zips-alternate.mp4" type="video/mp4"></video><div class="media-caption"><span>FLIGHT OPERATIONS</span><strong>Systems that move together.</strong></div></article>
+        </section>
+        <div id="homeStats" class="stats-grid reveal"></div>
+        <div id="pinnedArea" class="section-card purple-tint reveal"><div class="section-heading"><div><span class="eyebrow">PINNED</span><h3>Important now</h3></div><button class="text-btn" data-jump="communications">View communications →</button></div><div id="pinnedUpdates"></div></div>
+        <div class="dashboard-grid reveal">
           <div class="section-card"><div class="section-heading"><h3>My learning</h3><button class="text-btn" data-jump="learning">Open learning →</button></div><div id="homeLearning"></div></div>
           <div class="section-card"><div class="section-heading"><h3>Needs attention</h3><span class="soft-pill">Your queue</span></div><div id="attentionList"></div></div>
         </div>
-        <div class="section-card"><div class="section-heading"><h3>Recently changed knowledge</h3><button class="text-btn" data-jump="knowledge">Open library →</button></div><div id="recentKnowledge" class="card-grid compact"></div></div>
+        <div class="section-card reveal"><div class="section-heading"><h3>Recently changed knowledge</h3><button class="text-btn" data-jump="knowledge">Open library →</button></div><div id="recentKnowledge" class="card-grid compact"></div></div>
       </section>
 
       <section id="communicationsView" class="view">
@@ -129,7 +134,7 @@
     </main>
   </div>
 
-  <div id="notificationPanel" class="notification-panel hidden"><div class="panel-head"><strong>Notifications</strong><button class="icon-btn" data-close-panel>×</button></div><div id="notificationList"></div></div>
+  <div id="notificationPanel" class="notification-panel hidden"><div class="panel-head"><div><strong>Notifications</strong><small>Opening a notification clears it from this queue.</small></div><div class="panel-actions"><button class="text-btn" data-clear-notifications>Clear all</button><button class="icon-btn" data-close-panel>×</button></div></div><div id="notificationList"></div></div>
   <div id="profilePanel" class="profile-panel hidden"><div class="panel-head"><strong>Account</strong><button class="icon-btn" data-close-profile>×</button></div><div id="profileInfo"></div><button id="logoutButton" class="btn dark wide">Sign out</button></div>
 
   <dialog id="itemModal" class="modal"><form method="dialog" class="modal-box wide-modal"><button class="modal-close" value="cancel">×</button><div id="itemModalBody"></div></form></dialog>

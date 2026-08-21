@@ -49,3 +49,9 @@ This is a functional internal pilot architecture, not a replacement for enterpri
 ## Brand sources
 
 The UI references imagery hosted by Zipline's official public website / brand pages only. No third-party brand imagery is included.
+
+
+## V3.1 polish
+- Notifications are now dismissed persistently when opened, with a Clear all action.
+- Added official Zipline-hosted imagery/video and purposefully fast view/card transitions inspired by Zipline's current public brand system.
+- Motion respects prefers-reduced-motion.
