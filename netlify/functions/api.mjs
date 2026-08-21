@@ -69,6 +69,7 @@ async function loadContent(store){
   c.updates=arr(c.updates).map(x=>({...x,approvalStatus:x.approvalStatus||'approved',mandatory:!!x.mandatory,pinned:!!x.pinned,targetGroupIds:arr(x.targetGroupIds),targetUserIds:arr(x.targetUserIds),acknowledgements:arr(x.acknowledgements)}));
   c.docs=arr(c.docs).map(x=>({...x,approvalStatus:x.approvalStatus||'approved',version:x.version||1,targetGroupIds:arr(x.targetGroupIds)}));
   c.decisions=arr(c.decisions).map(x=>({...x,approvalStatus:x.approvalStatus||'approved',targetGroupIds:arr(x.targetGroupIds)}));
+  c.resources=arr(c.resources).map(x=>({...x,status:x.status||'Active',description:x.description||'',category:x.category||'General',version:x.version||1,reviewDate:x.reviewDate||'',updatedAt:x.updatedAt||x.createdAt||now()}));
   return c;
 }
 async function loadAuth(store){
@@ -140,7 +141,7 @@ function sanitizeWorkspace(content,auth,user){
   const docs=content.docs.filter(x=>visibleItem(x,user)&&targetMatches(x,user));
   const decisions=content.decisions.filter(x=>visibleItem(x,user)&&targetMatches(x,user));
   const courses=content.courses.filter(x=>isAdmin(user)||assignedCourse(x,user)).map(c=>({...c,progress:computeCourseProgress(c,p)}));
-  const resources=content.resources.map(r=>({id:r.id,title:r.title,fileName:r.fileName,mimeType:r.mimeType,size:r.size,createdAt:r.createdAt,uploadedBy:r.uploadedBy}));
+  const resources=content.resources.map(r=>({id:r.id,title:r.title,fileName:r.fileName,mimeType:r.mimeType,size:r.size,createdAt:r.createdAt,updatedAt:r.updatedAt||r.createdAt,uploadedBy:r.uploadedBy,status:r.status||'Active',description:r.description||'',category:r.category||'General',version:r.version||1,reviewDate:r.reviewDate||''}));
   return {updates,docs,decisions,groups:content.groups,courses,resources,quizzes:isAdmin(user)?content.quizzes:[],questionBank:isAdmin(user)?content.questionBank:[],activity:isAdmin(user)?content.activity.slice(0,500):[],notifications:notificationList(content,auth,user),me:publicUser(user),progress:p};
 }
 
@@ -276,7 +277,22 @@ export default async req=>{
     if(req.method==='POST'&&path==='learning/resource-upload'){
       needAdmin(user);const b=await req.json();const fileName=clean(b.fileName,240),mimeType=clean(b.mimeType,120)||'application/octet-stream',title=clean(b.title||fileName,240);const data=String(b.dataBase64||'');
       const bytes=Math.floor(data.length*3/4);if(!data||bytes>maxUploadBytes())return json({error:`File is empty or exceeds the ${Math.round(maxUploadBytes()/1024/1024)} MB upload limit.`},413);
-      const id=uid(),key=`resource-${id}`;await fileStore.set(key,data,{metadata:{mimeType,fileName}});const r={id,title,fileName,mimeType,size:bytes,blobKey:key,uploadedBy:user.name,uploadedById:user.id,createdAt:now()};content.resources.unshift(r);audit(content,'uploaded','learning',title,user);await writeJSON(contentStore,'workspace',content);return json({resource:{...r,blobKey:undefined},data:sanitizeWorkspace(content,auth,user)},201);
+      const existing=b.id?content.resources.find(x=>x.id===b.id):null;
+      if(existing){
+        await fileStore.set(existing.blobKey,data,{metadata:{mimeType,fileName}});existing.fileName=fileName;existing.mimeType=mimeType;existing.size=bytes;existing.title=title||existing.title;existing.description=clean(b.description,2000)||existing.description||'';existing.category=clean(b.category,120)||existing.category||'General';existing.reviewDate=clean(b.reviewDate,40)||existing.reviewDate||'';existing.version=Math.max(1,Number(existing.version||1))+1;existing.status='Active';existing.updatedAt=now();audit(content,'replaced file','learning',existing.title,user,`Version ${existing.version}`);await writeJSON(contentStore,'workspace',content);return json({resource:{...existing,blobKey:undefined},data:sanitizeWorkspace(content,auth,user)});
+      }
+      const id=uid(),key=`resource-${id}`;await fileStore.set(key,data,{metadata:{mimeType,fileName}});const r={id,title,fileName,mimeType,size:bytes,blobKey:key,uploadedBy:user.name,uploadedById:user.id,createdAt:now(),updatedAt:now(),status:'Active',description:clean(b.description,2000),category:clean(b.category,120)||'General',version:Math.max(1,Number(b.version||1)),reviewDate:clean(b.reviewDate,40)};content.resources.unshift(r);audit(content,'uploaded','learning',title,user);await writeJSON(contentStore,'workspace',content);return json({resource:{...r,blobKey:undefined},data:sanitizeWorkspace(content,auth,user)},201);
+    }
+    if(req.method==='POST'&&path==='learning/resource-manage'){
+      needAdmin(user);const b=await req.json();const r=content.resources.find(x=>x.id===b.id);if(!r)return json({error:'Resource not found.'},404);const using=content.courses.filter(c=>arr(c.modules).some(m=>m.type==='resource'&&m.resourceId===r.id));
+      if(b.action==='update'){r.title=clean(b.title,240)||r.title;r.description=clean(b.description,2000);r.category=clean(b.category,120)||'General';r.reviewDate=clean(b.reviewDate,40);r.updatedAt=now();audit(content,'updated metadata','learning',r.title,user);}
+      else if(b.action==='archive'){r.status='Archived';r.updatedAt=now();audit(content,'archived','learning',r.title,user,`${using.length} course(s) reference this resource`);}
+      else if(b.action==='restore'){r.status='Active';r.updatedAt=now();audit(content,'restored','learning',r.title,user);}
+      else if(b.action==='delete'){
+        if(using.length)return json({error:`This document is used in ${using.length} course${using.length===1?'':'s'}. Remove or replace it in those courses before permanently deleting it.`,usedBy:using.map(c=>({id:c.id,title:c.title}))},409);
+        if(r.blobKey)await fileStore.delete(r.blobKey);content.resources=content.resources.filter(x=>x.id!==r.id);auth=await loadAuth(authStore);for(const p of Object.values(auth.progress||{}))if(p.resources)delete p.resources[r.id];await writeJSON(authStore,'auth',auth);audit(content,'permanently deleted','learning',r.title,user);await writeJSON(contentStore,'workspace',content);return json({ok:true,data:sanitizeWorkspace(content,auth,user)});
+      } else return json({error:'Unknown resource action.'},400);
+      await writeJSON(contentStore,'workspace',content);return json({ok:true,data:sanitizeWorkspace(content,auth,user),usage:using.map(c=>({id:c.id,title:c.title}))});
     }
     if(req.method==='POST'&&path==='learning/resource-open'){
       const b=await req.json();const r=content.resources.find(x=>x.id===b.resourceId);if(!r)return json({error:'Resource not found.'},404);
