@@ -1,11 +1,11 @@
 {
-  "name": "zipline-comms-hub",
-  "version": "2.0.0",
+  "name": "zipline-centralized-call-center-hub",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "netlify dev",
-    "build": "echo 'Static site: no build step'"
+    "build": "echo 'Static site with Netlify Functions'"
   },
   "dependencies": {
     "@netlify/blobs": "^9.1.2"

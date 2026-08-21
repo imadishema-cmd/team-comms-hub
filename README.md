@@ -1,44 +1,51 @@
-# Zipline Team Comms Hub — V2
+# Zipline Centralized Call Center Hub - V3
 
-A Chromebook-friendly internal communications hub deployed on Netlify. V2 keeps the existing Netlify Blobs store (`team-comms-hub-v1`) so data created in V1 remains available after deployment.
+A Chromebook-first internal communications, knowledge and learning hub for the Centralized Call Center team. It runs on Netlify and uses Netlify Blobs for persistence.
 
-## What V2 adds
+## V3 highlights
 
-- Reader/editor access modes
-- Read acknowledgements on updates
-- Edit and delete controls restricted to editors
-- Audit/activity trail
-- Per-item revision history stored in Blobs
-- Related resource links (Google Drive, Docs, tickets, etc.)
-- Review queue and unread/review dashboard metric
-- Search across updates, knowledge, and decisions
-- Official Zipline logo/photography references sourced only from Zipline-owned web properties
-- Visual direction aligned to Zipline's public site: warm cream surfaces, high-contrast black, vivid orange-red, rounded cards, large direct headlines
+- Email/password self-sign-up and sign-in
+- First account becomes Admin (or set `BOOTSTRAP_ADMIN_EMAIL` to reserve bootstrap admin)
+- Viewer, Editor and Admin roles; Admins can promote/demote users
+- Optional admin approval for new accounts (`REQUIRE_ADMIN_APPROVAL=true`)
+- Optional email-domain restriction (`ALLOWED_EMAIL_DOMAINS=flyzipline.com`)
+- Communications with mandatory acknowledgement, pinning, targeting, approval workflow, review/expiry dates and audit history
+- Knowledge/SOP pages with version history and review queue
+- Decisions log
+- Centralized Call Center groups and group assignments
+- Learning center inspired by modern LMS workflows: courses, modules, document uploads, open tracking, completion, due dates, quizzes, question bank, attempts, pass marks and analytics
+- Personal notification center and dashboard
+- CSV reporting
+- Archive/retention controls
+- Zipline-purple visual system using only official Zipline-hosted brand imagery
 
-## Netlify deployment
+## Upgrade from V2
 
-Push these files to the same GitHub repository. Netlify will redeploy automatically.
+V3 continues to read the existing `team-comms-hub-v1` content store, so V2 updates/knowledge/decisions are preserved. Authentication moves to a new protected auth store.
 
-The required server function must remain at:
+Replace the top-level files and `netlify/functions/api.mjs` in GitHub. Netlify will redeploy automatically.
 
-`netlify/functions/api.mjs`
+### First sign-up
 
-## Access control (important before sensitive use)
+If no user account exists, the first successful registration becomes an Admin. For a safer bootstrap, set this Netlify environment variable before anyone signs up:
 
-In Netlify → Project configuration → Environment variables, add:
+`BOOTSTRAP_ADMIN_EMAIL=your.work.email@company.com`
 
-- `TEAM_EDITOR_CODE` — editors can create, edit, and delete
-- `TEAM_VIEW_CODE` — readers can browse and acknowledge updates
+Then only that email can claim the first Admin account.
 
-For backwards compatibility, an existing `TEAM_ACCESS_CODE` is treated as an editor code.
+### Optional environment variables
 
-If no access variables are configured, the app remains in pilot mode and grants editor access. Configure the codes before storing sensitive internal content.
+- `ALLOWED_EMAIL_DOMAINS=flyzipline.com` - comma-separated allowed sign-up domains
+- `REQUIRE_ADMIN_APPROVAL=true` - all accounts after bootstrap remain pending until approved
+- `SESSION_DAYS=14` - session lifetime, defaults to 14 days
+- `MAX_UPLOAD_MB=4` - learning document upload limit, defaults to 4 MB
 
-## Official brand assets used
+No environment variable needs to be re-entered after each deployment.
 
-The UI references media served by Zipline's official website and brand-guidelines page only:
+## Important security note
 
-- Zipline logo thumbnail from Zipline's official Logos & Brand Guidelines page
-- Zipline drone imagery from Zipline's official Solutions for Governments page
+This is a functional internal pilot architecture, not a replacement for enterprise SSO/IAM. Before storing highly sensitive information, route authentication through your organization's approved identity platform and complete a security review.
 
-No third-party stock photography or non-Zipline logo assets are included.
+## Brand sources
+
+The UI references imagery hosted by Zipline's official public website / brand pages only. No third-party brand imagery is included.

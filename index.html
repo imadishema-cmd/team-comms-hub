@@ -1,128 +1,143 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#f3efe5" />
-  <title>Zipline Team Comms Hub</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#633cff" />
+  <title>Centralized Call Center Hub</title>
+  <link rel="preconnect" href="https://www.zipline.com" />
+  <link rel="preconnect" href="https://res.cloudinary.com" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="accessGate" class="gate hidden">
-    <div class="gate-card">
-      <img class="gate-logo" src="https://www.zipline.com/_next/image?q=75&url=https%3A%2F%2Fa-us.storyblok.com%2Ff%2F1003963%2F768x560%2F6b42f40fcf%2Flogo-thumbnail.png&w=3840" alt="Zipline" />
-      <p class="eyebrow">INTERNAL COMMUNICATIONS</p>
-      <h1>Know what changed.</h1>
-      <p class="muted">Enter your name and workspace code to continue.</p>
-      <form id="accessForm" class="gate-form">
-        <label>Name<input id="displayName" type="text" autocomplete="name" placeholder="Your name" required /></label>
-        <label>Workspace code<input id="accessCode" type="password" autocomplete="current-password" placeholder="Access code" /></label>
-        <button class="btn primary" type="submit">Enter workspace</button>
-        <p id="accessError" class="error"></p>
-      </form>
-    </div>
+  <div id="authScreen" class="auth-shell">
+    <section class="auth-brand-panel">
+      <img class="auth-logo" alt="Zipline" src="https://a-us.storyblok.com/f/1003963/768x560/6b42f40fcf/logo-thumbnail.png" />
+      <div class="auth-brand-copy">
+        <span class="eyebrow light">CENTRALIZED CALL CENTER</span>
+        <h1>Know what changed.<br>Learn what matters.</h1>
+        <p>One place for live communications, trusted knowledge, decisions, and team learning.</p>
+      </div>
+      <div class="auth-photo" role="img" aria-label="Official Zipline brand image"></div>
+    </section>
+    <section class="auth-card-wrap">
+      <div class="auth-card">
+        <div class="auth-mobile-brand"><span class="zip-mark">≋</span><strong>Zipline</strong></div>
+        <div id="loginPanel">
+          <span class="eyebrow">INTERNAL COMMUNICATIONS</span>
+          <h2>Welcome back.</h2>
+          <p class="muted">Sign in with your account to continue.</p>
+          <form id="loginForm" class="form-stack">
+            <label>Email<input name="email" type="email" autocomplete="email" required placeholder="name@company.com"></label>
+            <label>Password<input name="password" type="password" autocomplete="current-password" required placeholder="Your password"></label>
+            <button class="btn primary wide" type="submit">Sign in</button>
+          </form>
+          <div class="auth-links"><button class="text-btn" data-auth="signup">Create an account</button><button class="text-btn" data-auth="reset">Forgot password?</button></div>
+        </div>
+        <div id="signupPanel" class="hidden">
+          <span class="eyebrow">JOIN THE TEAM HUB</span>
+          <h2>Create your account.</h2>
+          <p class="muted">New members start as Viewers. Admins can grant Editor or Admin access later.</p>
+          <form id="signupForm" class="form-stack">
+            <label>Full name<input name="name" required maxlength="120" placeholder="Your name"></label>
+            <label>Work email<input name="email" type="email" autocomplete="email" required placeholder="name@company.com"></label>
+            <label>Password<input name="password" type="password" autocomplete="new-password" required minlength="10" placeholder="10+ characters, letter + number"></label>
+            <label>Confirm password<input name="confirm" type="password" autocomplete="new-password" required></label>
+            <button class="btn primary wide" type="submit">Create account</button>
+          </form>
+          <div class="auth-links"><button class="text-btn" data-auth="login">Back to sign in</button></div>
+        </div>
+        <div id="resetPanel" class="hidden">
+          <span class="eyebrow">PASSWORD HELP</span><h2>Request a reset.</h2>
+          <p class="muted">Your request will appear in the Admin user-management queue.</p>
+          <form id="resetForm" class="form-stack"><label>Email<input name="email" type="email" required></label><button class="btn primary wide" type="submit">Request password reset</button></form>
+          <div class="auth-links"><button class="text-btn" data-auth="login">Back to sign in</button></div>
+        </div>
+        <p id="authMessage" class="form-message"></p>
+      </div>
+    </section>
   </div>
 
-  <div class="app-shell">
+  <div id="appShell" class="app-shell hidden">
     <aside class="sidebar">
-      <div class="side-top">
-        <div class="logo-card">
-          <img src="https://www.zipline.com/_next/image?q=75&url=https%3A%2F%2Fa-us.storyblok.com%2Ff%2F1003963%2F768x560%2F6b42f40fcf%2Flogo-thumbnail.png&w=3840" alt="Zipline" />
-        </div>
-        <div class="product-name">Team Comms</div>
-        <nav>
-          <button class="nav-item active" data-view="home">Overview</button>
-          <button class="nav-item" data-view="updates">Updates</button>
-          <button class="nav-item" data-view="knowledge">Knowledge</button>
-          <button class="nav-item" data-view="decisions">Decisions</button>
-          <button class="nav-item" data-view="activity">Activity</button>
-        </nav>
-      </div>
-      <div class="sidebar-footer">
-        <div class="live-dot"><span></span> Shared workspace</div>
-        <small id="roleLabel">Checking access…</small>
-        <button id="switchUser" class="text-btn light">Switch user</button>
+      <div class="brand-row"><div class="brand-icon">≋</div><div><strong>Zipline</strong><span>Call Center Hub</span></div></div>
+      <nav id="mainNav">
+        <button class="nav-item active" data-view="home"><span>⌂</span>Home</button>
+        <button class="nav-item" data-view="communications"><span>◉</span>Communications</button>
+        <button class="nav-item" data-view="knowledge"><span>▤</span>Knowledge</button>
+        <button class="nav-item" data-view="learning"><span>▷</span>Learning</button>
+        <button class="nav-item" data-view="decisions"><span>◇</span>Decisions</button>
+        <button id="adminNav" class="nav-item hidden" data-view="admin"><span>⚙</span>Admin</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="mini-status"><span class="status-dot"></span>Live shared workspace</div>
+        <button id="profileButton" class="profile-button"><span id="profileInitial">U</span><div><strong id="profileName">User</strong><small id="profileRole">Viewer</small></div></button>
       </div>
     </aside>
 
     <main class="main">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">INTERNAL COMMUNICATIONS</p>
-          <h1 id="viewTitle">What changed?</h1>
-        </div>
+        <div><span class="eyebrow" id="viewEyebrow">CENTRALIZED CALL CENTER</span><h1 id="viewTitle">Home</h1></div>
         <div class="top-actions">
-          <div class="search-wrap"><input id="globalSearch" type="search" placeholder="Search updates, knowledge, decisions…" /></div>
-          <button id="newItemBtn" class="btn primary editor-only">+ New update</button>
+          <label class="searchbox"><span>⌕</span><input id="globalSearch" placeholder="Search updates, knowledge, learning..."></label>
+          <button id="notificationButton" class="icon-btn" title="Notifications">♢<span id="notificationBadge" class="badge-dot hidden">0</span></button>
+          <button id="quickCreate" class="btn primary editor-only hidden">+ New</button>
         </div>
       </header>
 
       <section id="homeView" class="view active">
         <div class="hero-card">
-          <div class="hero-copy">
-            <p class="eyebrow light-text">TEAM SIGNAL</p>
-            <h2>Move fast.<br/>Stay aligned.</h2>
-            <p>One durable source for live updates, operating knowledge, and decisions.</p>
-          </div>
-          <div class="hero-media" aria-label="Zipline drone over a residential area">
-            <img src="https://www.zipline.com/_next/image?dpl=dpl_APCCfabc2rs9BRdStixGMKg5n9bS&q=75&url=%2Fimages%2Fsolutions%2Finternational%2Fdeliver%2Ftraceability.jpg&w=1200" alt="Zipline drone flying over a residential town" />
-          </div>
+          <div class="hero-copy"><span class="eyebrow light">TEAM SIGNAL</span><h2>Know what matters.<br>Find it fast.</h2><p>Live communications, operating knowledge, and learning built for a team that moves quickly.</p></div>
+          <div class="hero-image" aria-label="Official Zipline website imagery"></div>
         </div>
-
-        <div class="stats" id="stats"></div>
-
-        <div class="grid-two">
-          <section class="panel"><div class="panel-head"><h3>Latest updates</h3><button class="text-btn" data-jump="updates">View all</button></div><div id="latestUpdates" class="list"></div></section>
-          <section class="panel"><div class="panel-head"><h3>Needs attention</h3><span class="pill amber">Review queue</span></div><div id="reviewQueue" class="list"></div></section>
+        <div id="homeStats" class="stats-grid"></div>
+        <div id="pinnedArea" class="section-card purple-tint"><div class="section-heading"><div><span class="eyebrow">PINNED</span><h3>Important now</h3></div><button class="text-btn" data-jump="communications">View communications →</button></div><div id="pinnedUpdates"></div></div>
+        <div class="dashboard-grid">
+          <div class="section-card"><div class="section-heading"><h3>My learning</h3><button class="text-btn" data-jump="learning">Open learning →</button></div><div id="homeLearning"></div></div>
+          <div class="section-card"><div class="section-heading"><h3>Needs attention</h3><span class="soft-pill">Your queue</span></div><div id="attentionList"></div></div>
         </div>
-
-        <section class="panel"><div class="panel-head"><h3>Recently changed knowledge</h3><button class="text-btn" data-jump="knowledge">Open library</button></div><div id="recentDocs" class="cards"></div></section>
+        <div class="section-card"><div class="section-heading"><h3>Recently changed knowledge</h3><button class="text-btn" data-jump="knowledge">Open library →</button></div><div id="recentKnowledge" class="card-grid compact"></div></div>
       </section>
 
-      <section id="updatesView" class="view">
-        <div class="section-tools"><div class="filter-group"><button class="chip active" data-filter="all">All</button><button class="chip" data-filter="Critical">Critical</button><button class="chip" data-filter="High">High</button><button class="chip" data-filter="Active">Active</button></div><button class="btn secondary editor-only" data-create="updates">+ Add update</button></div>
-        <div id="updatesList" class="timeline"></div>
+      <section id="communicationsView" class="view">
+        <div class="view-tools"><div class="filter-row" id="commFilters"><button class="chip active" data-comm-filter="all">All</button><button class="chip" data-comm-filter="mandatory">Acknowledgement required</button><button class="chip" data-comm-filter="Critical">Critical</button><button class="chip" data-comm-filter="High">High</button><button class="chip" data-comm-filter="unread">Unread</button></div><button class="btn dark editor-only hidden" data-create="updates">+ Add update</button></div>
+        <div id="communicationsList" class="stack"></div>
       </section>
 
       <section id="knowledgeView" class="view">
-        <div class="section-tools"><p class="muted">Living SOPs, references, FAQs, project context, and linked Drive resources.</p><button class="btn secondary editor-only" data-create="docs">+ New page</button></div>
-        <div id="docsGrid" class="cards knowledge-grid"></div>
+        <div class="view-tools"><div class="filter-row" id="knowledgeFilters"><button class="chip active" data-doc-filter="all">All</button><button class="chip" data-doc-filter="SOP">SOPs</button><button class="chip" data-doc-filter="FAQ">FAQs</button><button class="chip" data-doc-filter="Reference">Reference</button></div><button class="btn dark editor-only hidden" data-create="docs">+ New knowledge</button></div>
+        <div id="knowledgeList" class="card-grid"></div>
+      </section>
+
+      <section id="learningView" class="view">
+        <div class="learning-banner"><div><span class="eyebrow light">MY LEARNING</span><h2>Learn. Apply. Keep moving.</h2><p>Assigned learning, refreshers, and quizzes in one place.</p></div><div class="learning-progress-big"><strong id="learningOverall">0%</strong><span>overall completion</span></div></div>
+        <div class="filter-row" id="learningFilters"><button class="chip active" data-course-filter="all">All</button><button class="chip" data-course-filter="inprogress">In progress</button><button class="chip" data-course-filter="overdue">Overdue</button><button class="chip" data-course-filter="complete">Completed</button></div>
+        <div id="courseGrid" class="card-grid course-grid"></div>
       </section>
 
       <section id="decisionsView" class="view">
-        <div class="section-tools"><p class="muted">Record what was decided, why, and what changes because of it.</p><button class="btn secondary editor-only" data-create="decisions">+ Record decision</button></div>
-        <div id="decisionsList" class="decision-list"></div>
+        <div class="view-tools"><p class="muted">Durable decisions with context, impact, ownership, and review dates.</p><button class="btn dark editor-only hidden" data-create="decisions">+ Record decision</button></div>
+        <div id="decisionList" class="stack"></div>
       </section>
 
-      <section id="activityView" class="view">
-        <div class="panel"><div class="panel-head"><h3>Change history</h3><span class="pill">Audit trail</span></div><div id="activityList" class="activity-list"></div></div>
+      <section id="adminView" class="view">
+        <div class="admin-tabs" id="adminTabs"><button class="chip active" data-admin-tab="overview">Overview</button><button class="chip" data-admin-tab="users">Users</button><button class="chip" data-admin-tab="groups">Call Center Groups</button><button class="chip" data-admin-tab="approvals">Approvals</button><button class="chip" data-admin-tab="learning">Learning Admin</button><button class="chip" data-admin-tab="reports">Reports</button><button class="chip" data-admin-tab="audit">Audit</button></div>
+        <div id="adminContent"></div>
       </section>
 
-      <section id="searchView" class="view"><div class="panel"><div class="panel-head"><h3>Search results</h3><span id="searchCount" class="pill"></span></div><div id="searchResults" class="list"></div></div></section>
+      <section id="searchView" class="view"><div class="section-card"><div class="section-heading"><h3>Search results</h3><span id="searchCount" class="soft-pill">0 found</span></div><div id="searchResults" class="stack"></div></div></section>
     </main>
   </div>
 
-  <dialog id="detailModal" class="detail-dialog">
-    <div class="detail-shell">
-      <button type="button" class="icon-btn modal-close" id="closeDetail">×</button>
-      <div id="detailBody"></div>
-      <div class="detail-actions">
-        <button id="ackBtn" class="btn secondary hidden">✓ I’ve read this</button>
-        <span></span>
-        <button id="editDetail" class="btn primary editor-only">Edit</button>
-      </div>
-    </div>
-  </dialog>
+  <div id="notificationPanel" class="notification-panel hidden"><div class="panel-head"><strong>Notifications</strong><button class="icon-btn" data-close-panel>×</button></div><div id="notificationList"></div></div>
+  <div id="profilePanel" class="profile-panel hidden"><div class="panel-head"><strong>Account</strong><button class="icon-btn" data-close-profile>×</button></div><div id="profileInfo"></div><button id="logoutButton" class="btn dark wide">Sign out</button></div>
 
-  <dialog id="editorModal">
-    <form id="editorForm">
-      <div class="modal-head"><div><p class="eyebrow" id="modalEyebrow">NEW</p><h2 id="modalTitle">Create update</h2></div><button type="button" class="icon-btn" id="closeModal">×</button></div>
-      <div id="formFields"></div>
-      <div class="modal-actions"><button type="button" class="btn danger editor-only" id="deleteItem">Delete</button><span></span><button type="button" class="btn secondary" id="cancelModal">Cancel</button><button type="submit" class="btn primary editor-only">Save</button></div>
-    </form>
-  </dialog>
-
+  <dialog id="itemModal" class="modal"><form method="dialog" class="modal-box wide-modal"><button class="modal-close" value="cancel">×</button><div id="itemModalBody"></div></form></dialog>
+  <dialog id="editorModal" class="modal"><div class="modal-box"><button class="modal-close" data-close-editor>×</button><span class="eyebrow" id="editorEyebrow">NEW</span><h2 id="editorTitle">Create</h2><form id="editorForm" class="form-stack"><div id="editorFields"></div><div class="modal-actions"><button type="button" class="btn ghost" data-close-editor>Cancel</button><button type="submit" class="btn primary">Save</button></div></form></div></dialog>
+  <dialog id="courseModal" class="modal"><div class="modal-box wide-modal"><button class="modal-close" data-close-course>×</button><div id="courseModalBody"></div></div></dialog>
+  <dialog id="adminModal" class="modal"><div class="modal-box"><button class="modal-close" data-close-admin-modal>×</button><div id="adminModalBody"></div></div></dialog>
   <div id="toast" class="toast"></div>
-  <script type="module" src="app.js"></script>
+
+  <script src="app.js" defer></script>
 </body>
 </html>
