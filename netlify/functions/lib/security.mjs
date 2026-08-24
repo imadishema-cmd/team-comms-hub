@@ -128,7 +128,9 @@ export async function enforceRateLimit(scope, identity, limit, windowMs, lockout
   const store = rateStore();
   const key = `${scope}:${sha256(identity).slice(0, 40)}`;
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    const { data, etag } = await store.getWithMetadata(key, { type: 'json', consistency: 'strong' });
+    const stored = await store.getWithMetadata(key, { type: 'json', consistency: 'strong' });
+    const data = stored?.data ?? null;
+    const etag = stored?.etag ?? null;
     const timestamp = Date.now();
     const record = data || { count: 0, windowStartedAt: timestamp, lockedUntil: 0 };
     if (record.lockedUntil > timestamp) {
