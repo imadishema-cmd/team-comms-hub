@@ -1,19 +1,29 @@
 {
   "name": "zipline-centralized-call-center-hub",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "netlify dev",
-    "build": "echo 'Static site with Netlify Functions'"
+    "format": "prettier --write \"**/*.{js,mjs,json,md,css,html}\"",
+    "format:check": "prettier --check \"**/*.{js,mjs,json,md,css,html}\"",
+    "lint": "eslint app.js api-client.js ui.js netlify/functions/**/*.mjs tests/**/*.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check:syntax": "node --check app.js && node --check api-client.js && node --check ui.js && node --check netlify/functions/api.mjs && node --check netlify/functions/reminders.mjs",
+    "validate": "npm run check:syntax && npm run lint && npm test",
+    "build": "npm run check:syntax && npm test"
   },
   "dependencies": {
     "@netlify/blobs": "^9.1.2"
   },
   "devDependencies": {
-    "netlify-cli": "^23.7.3"
+    "@eslint/js": "^9.34.0",
+    "eslint": "^9.34.0",
+    "globals": "^16.3.0",
+    "netlify-cli": "^23.7.3",
+    "prettier": "^3.6.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

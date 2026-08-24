@@ -1,0 +1,14 @@
+{
+  "name": "Zipline Centralized Call Center Hub",
+  "short_name": "Call Center Hub",
+  "description": "Internal communications, operations, knowledge and learning for the Centralized Call Center.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f1e8",
+  "theme_color": "#633cff",
+  "icons": [
+    {"src":"/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
