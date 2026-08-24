@@ -1,6 +1,6 @@
 {
   "name": "zipline-centralized-call-center-hub",
-  "version": "4.0.0",
+  "version": "4.0.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,7 +14,7 @@
     "build": "npm run check:syntax && npm test"
   },
   "dependencies": {
-    "@netlify/blobs": "^9.1.2"
+    "@netlify/blobs": "10.7.13"
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
