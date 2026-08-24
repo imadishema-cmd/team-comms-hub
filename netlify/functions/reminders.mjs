@@ -6,7 +6,7 @@ const hours = value => Number(value) * 3600e3;
 
 async function once(key) {
   const result = await reminderStore().setJSON(key, { sentAt: new Date().toISOString() }, { onlyIfNew: true });
-  return result.modified;
+  return result?.modified !== false;
 }
 
 export default async function reminderJob() {
