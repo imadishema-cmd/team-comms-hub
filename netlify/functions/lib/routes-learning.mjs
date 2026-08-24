@@ -71,6 +71,49 @@ export async function handleLearning(req, path, url) {
     return json({resource:{...resource,blobKey:undefined}},201);
   }
 
+  if (req.method === 'POST' && path === 'learning/resource-link') {
+    needAdmin(user);
+    const body = await req.json();
+    const rawUrl = clean(body.externalUrl, 2000);
+    let parsed;
+    try { parsed = new URL(rawUrl); } catch { throw Object.assign(new Error('Enter a valid Google Drive link.'), { status: 400 }); }
+    const host = parsed.hostname.toLowerCase();
+    if (parsed.protocol !== 'https:' || !['drive.google.com','docs.google.com'].includes(host)) {
+      throw Object.assign(new Error('Only Google Drive, Docs, Sheets, or Slides links are allowed.'), { status: 400 });
+    }
+    const title = clean(body.title, 240);
+    if (!title) throw Object.assign(new Error('Title is required.'), { status: 400 });
+    let resource;
+    await mutateCollection('resources', items => {
+      if (body.id) {
+        resource = items.find(item => item.id === body.id);
+        if (!resource) throw Object.assign(new Error('Resource not found.'), { status: 404 });
+        if (resource.sourceType !== 'google-drive') throw Object.assign(new Error('This resource is not a Google Drive link.'), { status: 409 });
+        Object.assign(resource, {
+          externalUrl: parsed.toString(),
+          title,
+          description: clean(body.description, 2000),
+          category: clean(body.category, 120) || 'General',
+          reviewDate: clean(body.reviewDate, 40),
+          updatedAt: now(),
+          status: 'Active',
+          version: Math.max(1, Number(resource.version || 1)) + 1,
+        });
+      } else {
+        resource = {
+          id: uid(), sourceType: 'google-drive', externalUrl: parsed.toString(), title,
+          fileName: 'Google Drive', mimeType: 'text/html', size: 0, inline: false,
+          uploadedBy: user.name, uploadedById: user.id, createdAt: now(), updatedAt: now(), status: 'Active',
+          description: clean(body.description, 2000), category: clean(body.category, 120) || 'General',
+          version: 1, reviewDate: clean(body.reviewDate, 40),
+        };
+        items.unshift(resource);
+      }
+    });
+    await recordAudit(body.id ? 'updated Drive link' : 'added Drive link', 'learning', resource.title, user);
+    return json({ resource }, body.id ? 200 : 201);
+  }
+
   if(req.method==='POST'&&path==='learning/resource-manage'){
     needAdmin(user);const body=await req.json();const courses=await readCollection('courses');const using=courses.filter(course=>arr(course.modules).some(module=>module.type==='resource'&&module.resourceId===body.id));let changed;let deleted=false;
     await mutateCollection('resources',items=>{const index=items.findIndex(item=>item.id===body.id);if(index<0)throw Object.assign(new Error('Resource not found.'),{status:404});const resource=items[index];
@@ -80,7 +123,7 @@ export async function handleLearning(req, path, url) {
       else if(body.action==='delete'){if(using.length)throw Object.assign(new Error(`This document is used in ${using.length} course${using.length===1?'':'s'}. Remove or replace it first.`),{status:409});changed=resource;items.splice(index,1);deleted=true;}
       else throw Object.assign(new Error('Unknown resource action.'),{status:400});
     });
-    if(deleted&&changed.blobKey){const store=changed.fileStoreVersion==='v3'?oldFileStore():fileStore();await store.delete(changed.blobKey);}
+    if(deleted&&changed.blobKey&&changed.sourceType!=='google-drive'){const store=changed.fileStoreVersion==='v3'?oldFileStore():fileStore();await store.delete(changed.blobKey);}
     await recordAudit(deleted?'permanently deleted':body.action,'learning',changed.title,user,using.length?`${using.length} course(s) reference this resource`: '');
     return json({ok:true,resource:deleted?null:{...changed,blobKey:undefined},usage:using.map(course=>({id:course.id,title:course.title}))});
   }
@@ -89,11 +132,11 @@ export async function handleLearning(req, path, url) {
     const body=await req.json();const resources=await readCollection('resources');const resource=resources.find(item=>item.id===body.resourceId);if(!resource)return json({error:'Resource not found.'},404);
     const courses=await readCollection('courses');const usedBy=courses.filter(course=>arr(course.modules).some(module=>module.resourceId===resource.id));if(!isAdmin(user)&&(!usedBy.length||!usedBy.some(course=>assignedCourse(course,user))))return json({error:'This resource is not assigned to you.'},403);
     let tracking;await mutateProgress(user.id,progress=>{const current=progress.resources[resource.id]||{firstOpenedAt:now(),opens:0};current.lastOpenedAt=now();current.opens=Number(current.opens||0)+1;progress.resources[resource.id]=current;tracking=current;});
-    return json({resource:{id:resource.id,title:resource.title,fileName:resource.fileName,mimeType:resource.mimeType,size:resource.size},tracking,url:`/api/learning/resource-file?id=${encodeURIComponent(resource.id)}`});
+    return json({resource:{id:resource.id,title:resource.title,fileName:resource.fileName,mimeType:resource.mimeType,size:resource.size,sourceType:resource.sourceType||'upload'},tracking,url:resource.sourceType==='google-drive'?resource.externalUrl:`/api/learning/resource-file?id=${encodeURIComponent(resource.id)}`});
   }
 
   if(req.method==='GET'&&path==='learning/resource-file'){
-    const id=clean(url.searchParams.get('id'),100);const resources=await readCollection('resources');const resource=resources.find(item=>item.id===id);if(!resource)return json({error:'Resource not found.'},404);
+    const id=clean(url.searchParams.get('id'),100);const resources=await readCollection('resources');const resource=resources.find(item=>item.id===id);if(!resource)return json({error:'Resource not found.'},404);if(resource.sourceType==='google-drive')return json({error:'This resource is stored in Google Drive.'},409);
     const courses=await readCollection('courses');const usedBy=courses.filter(course=>arr(course.modules).some(module=>module.resourceId===resource.id));if(!isAdmin(user)&&(!usedBy.length||!usedBy.some(course=>assignedCourse(course,user))))return json({error:'This resource is not assigned to you.'},403);
     const store=resource.fileStoreVersion==='v3'?oldFileStore():fileStore();let data;
     if(resource.fileStoreVersion==='v3'){const base64=await store.get(resource.blobKey,{type:'text',consistency:'strong'});if(base64)data=Buffer.from(base64,'base64');}
