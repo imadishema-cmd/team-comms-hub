@@ -142,7 +142,9 @@ export async function readCollections(names = COLLECTIONS) {
 async function mutateMeta(collection) {
   const store = contentStore();
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    const { data, etag } = await store.getWithMetadata('meta', { type: 'json', consistency: 'strong' });
+    const record = await store.getWithMetadata('meta', { type: 'json', consistency: 'strong' });
+    const data = record?.data ?? null;
+    const etag = record?.etag ?? null;
     const meta = data || { schemaVersion: 4, revisions: {}, updatedAt: {} };
     meta.schemaVersion = 4;
     meta.revisions ||= {};
@@ -160,7 +162,9 @@ export async function mutateCollection(name, mutator) {
   if (!COLLECTIONS.includes(name)) throw new Error(`Unknown collection: ${name}`);
   const store = contentStore();
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const { data, etag } = await store.getWithMetadata(name, { type: 'json', consistency: 'strong' });
+    const record = await store.getWithMetadata(name, { type: 'json', consistency: 'strong' });
+    const data = record?.data ?? null;
+    const etag = record?.etag ?? null;
     const current = structuredClone(data || []);
     const result = await mutator(current);
     const next = result?.value ?? current;
@@ -187,7 +191,9 @@ export async function mutateAuth(mutator) {
   await ensureMigrated();
   const store = authStore();
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const { data, etag } = await store.getWithMetadata('auth', { type: 'json', consistency: 'strong' });
+    const record = await store.getWithMetadata('auth', { type: 'json', consistency: 'strong' });
+    const data = record?.data ?? null;
+    const etag = record?.etag ?? null;
     const auth = { ...structuredClone(defaultAuth), ...(data || {}) };
     auth.users ||= [];
     auth.sessions ||= {};
@@ -222,7 +228,9 @@ export async function mutateProgress(userId, mutator) {
   const store = progressStore();
   const key = `user:${userId}`;
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const { data, etag } = await store.getWithMetadata(key, { type: 'json', consistency: 'strong' });
+    const record = await store.getWithMetadata(key, { type: 'json', consistency: 'strong' });
+    const data = record?.data ?? null;
+    const etag = record?.etag ?? null;
     const progress = {
       ...structuredClone(defaultProgress),
       ...(data || {}),
