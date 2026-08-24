@@ -1,164 +1,248 @@
-import crypto from 'node:crypto';
-import { authStore, mutateAuth, rateStore, readAuth } from './store.mjs';
-import { now, publicUser, sha256, sessionDays } from './domain.mjs';
+import { getStore } from '@netlify/blobs';
+import { arr, now } from './domain.mjs';
 
-const SESSION_COOKIE = 'ccc_session';
-const CSRF_COOKIE = 'ccc_csrf';
-const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
+export const COLLECTIONS = [
+  'updates', 'docs', 'decisions', 'groups', 'courses', 'quizzes', 'questionBank', 'resources', 'attachments',
+  'activity', 'incidents', 'handoffs', 'roster',
+];
 
-export function json(data, status = 200, extraHeaders = {}) {
-  return new Response(JSON.stringify(data), { status, headers: { ...JSON_HEADERS, ...extraHeaders } });
+const NEW_CONTENT_STORE = 'team-comms-hub-content-v4';
+const OLD_CONTENT_STORE = 'team-comms-hub-v1';
+const NEW_AUTH_STORE = 'team-comms-hub-auth-v4';
+const OLD_AUTH_STORE = 'team-comms-hub-auth-v3';
+const NEW_PROGRESS_STORE = 'team-comms-hub-progress-v4';
+const NEW_FILE_STORE = 'team-comms-hub-files-v4';
+const OLD_FILE_STORE = 'team-comms-hub-files-v3';
+const RATE_STORE = 'team-comms-hub-rate-v4';
+const REMINDER_STORE = 'team-comms-hub-reminders-v4';
+
+export const contentStore = () => getStore({ name: NEW_CONTENT_STORE, consistency: 'strong' });
+export const authStore = () => getStore({ name: NEW_AUTH_STORE, consistency: 'strong' });
+export const progressStore = () => getStore({ name: NEW_PROGRESS_STORE, consistency: 'strong' });
+export const fileStore = () => getStore({ name: NEW_FILE_STORE, consistency: 'strong' });
+export const oldFileStore = () => getStore({ name: OLD_FILE_STORE, consistency: 'strong' });
+export const rateStore = () => getStore({ name: RATE_STORE, consistency: 'strong' });
+export const reminderStore = () => getStore({ name: REMINDER_STORE, consistency: 'strong' });
+
+const defaultAuth = {
+  users: [], sessions: {}, verificationTokens: {}, resetTokens: {}, mfaChallenges: {}, quizSessions: {}, passwordResetRequests: [], invites: [],
+};
+
+const defaultProgress = { resources: {}, modules: {}, courses: {}, quizAttempts: {}, notificationReads: {} };
+
+function upgradeCollection(name, value) {
+  const list = arr(value);
+  if (name === 'updates') return list.map(item => ({
+    ...item,
+    approvalStatus: item.approvalStatus || 'approved',
+    mandatory: Boolean(item.mandatory),
+    pinned: Boolean(item.pinned),
+    targetGroupIds: arr(item.targetGroupIds),
+    targetUserIds: arr(item.targetUserIds),
+    acknowledgements: arr(item.acknowledgements),
+    attachmentIds: arr(item.attachmentIds),
+  }));
+  if (name === 'docs') return list.map(item => ({
+    ...item,
+    approvalStatus: item.approvalStatus || 'approved',
+    version: item.version || 1,
+    targetGroupIds: arr(item.targetGroupIds),
+    attachmentIds: arr(item.attachmentIds),
+    comments: arr(item.comments),
+    outdatedFlags: arr(item.outdatedFlags),
+  }));
+  if (name === 'decisions') return list.map(item => ({ ...item, approvalStatus: item.approvalStatus || 'approved', targetGroupIds: arr(item.targetGroupIds) }));
+  if (name === 'resources') return list.map(item => ({
+    ...item,
+    status: item.status || 'Active',
+    description: item.description || '',
+    category: item.category || 'General',
+    version: item.version || 1,
+    reviewDate: item.reviewDate || '',
+    updatedAt: item.updatedAt || item.createdAt || now(),
+    fileStoreVersion: item.fileStoreVersion || 'v3',
+  }));
+  return list;
 }
 
-export function clientIp(req) {
-  return (req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
+function upgradeAuth(old = {}) {
+  const users = arr(old.users).map(user => ({
+    ...user,
+    emailVerifiedAt: user.emailVerifiedAt || user.createdAt || now(),
+    mfa: user.mfa || { enabled: false },
+    groupIds: arr(user.groupIds),
+  }));
+  return {
+    ...structuredClone(defaultAuth),
+    users,
+    sessions: old.sessions || {},
+    passwordResetRequests: arr(old.passwordResetRequests),
+    invites: arr(old.invites),
+  };
 }
 
-export function parseCookies(req) {
-  const cookies = {};
-  for (const part of String(req.headers.get('cookie') || '').split(';')) {
-    const index = part.indexOf('=');
-    if (index < 0) continue;
-    const key = part.slice(0, index).trim();
-    const value = part.slice(index + 1).trim();
-    if (key) cookies[key] = decodeURIComponent(value);
+export async function ensureMigrated() {
+  const store = contentStore();
+  const meta = await store.get('meta', { type: 'json', consistency: 'strong' });
+  if (meta?.schemaVersion >= 4) return meta;
+
+  const oldContent = getStore({ name: OLD_CONTENT_STORE, consistency: 'strong' });
+  const oldWorkspace = await oldContent.get('workspace', { type: 'json', consistency: 'strong' }) || {};
+  for (const name of COLLECTIONS) {
+    const existing = await store.get(name, { type: 'json', consistency: 'strong' });
+    if (existing === null) await store.setJSON(name, upgradeCollection(name, oldWorkspace[name] || []), { onlyIfNew: true });
   }
-  return cookies;
-}
 
-function cookie(name, value, options = {}) {
-  const parts = [`${name}=${encodeURIComponent(value)}`];
-  parts.push(`Path=${options.path || '/'}`);
-  if (options.maxAge !== undefined) parts.push(`Max-Age=${options.maxAge}`);
-  if (options.httpOnly) parts.push('HttpOnly');
-  if (options.secure !== false) parts.push('Secure');
-  parts.push(`SameSite=${options.sameSite || 'Strict'}`);
-  return parts.join('; ');
-}
-
-export function sessionResponse(payload, sessionToken, csrfToken, expiresAt, status = 200) {
-  const headers = new Headers(JSON_HEADERS);
-  const seconds = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
-  headers.append('Set-Cookie', cookie(SESSION_COOKIE, sessionToken, { httpOnly: true, maxAge: seconds }));
-  headers.append('Set-Cookie', cookie(CSRF_COOKIE, csrfToken, { httpOnly: false, maxAge: seconds }));
-  return new Response(JSON.stringify(payload), { status, headers });
-}
-
-export function clearSessionResponse(payload = { ok: true }) {
-  const headers = new Headers(JSON_HEADERS);
-  headers.append('Set-Cookie', cookie(SESSION_COOKIE, '', { httpOnly: true, maxAge: 0 }));
-  headers.append('Set-Cookie', cookie(CSRF_COOKIE, '', { httpOnly: false, maxAge: 0 }));
-  return new Response(JSON.stringify(payload), { status: 200, headers });
-}
-
-export async function createSession(userId) {
-  const rawToken = crypto.randomBytes(32).toString('hex');
-  const csrfToken = crypto.randomBytes(24).toString('hex');
-  const tokenHash = sha256(rawToken);
-  const expiresAt = new Date(Date.now() + sessionDays() * 864e5).toISOString();
-  await mutateAuth(auth => {
-    cleanupAuth(auth);
-    auth.sessions[tokenHash] = { userId, csrfToken, createdAt: now(), expiresAt };
-  });
-  return { rawToken, csrfToken, expiresAt };
-}
-
-export function cleanupAuth(auth) {
-  const timestamp = Date.now();
-  for (const [token, session] of Object.entries(auth.sessions || {})) {
-    if (new Date(session.expiresAt).getTime() < timestamp) delete auth.sessions[token];
-  }
-  for (const [token, record] of Object.entries(auth.verificationTokens || {})) {
-    if (new Date(record.expiresAt).getTime() < timestamp) delete auth.verificationTokens[token];
-  }
-  for (const [token, record] of Object.entries(auth.resetTokens || {})) {
-    if (new Date(record.expiresAt).getTime() < timestamp) delete auth.resetTokens[token];
-  }
-  for (const [token, record] of Object.entries(auth.mfaChallenges || {})) {
-    if (new Date(record.expiresAt).getTime() < timestamp) delete auth.mfaChallenges[token];
-  }
-  for (const [token, record] of Object.entries(auth.quizSessions || {})) {
-    if (new Date(record.expiresAt).getTime() < timestamp) delete auth.quizSessions[token];
-  }
-}
-
-export async function authenticate(req, { requireCsrf = false } = {}) {
-  const cookies = parseCookies(req);
-  const rawToken = cookies[SESSION_COOKIE];
-  if (!rawToken) return { auth: await readAuth(), user: null, session: null, tokenHash: null };
-  const tokenHash = sha256(rawToken);
-  const auth = await readAuth();
-  cleanupAuth(auth);
-  const session = auth.sessions?.[tokenHash];
-  if (!session) return { auth, user: null, session: null, tokenHash: null };
-  const user = auth.users.find(item => item.id === session.userId);
-  if (!user || user.status !== 'active') return { auth, user: null, session: null, tokenHash: null };
-  if (requireCsrf) {
-    const header = req.headers.get('x-csrf-token') || '';
-    const cookieValue = cookies[CSRF_COOKIE] || '';
-    if (!header || !cookieValue || header !== cookieValue || header !== session.csrfToken) {
-      throw Object.assign(new Error('Your security token expired. Refresh the page and try again.'), { status: 403 });
+  const newAuth = authStore();
+  const existingAuth = await newAuth.get('auth', { type: 'json', consistency: 'strong' });
+  if (existingAuth === null) {
+    const oldAuth = getStore({ name: OLD_AUTH_STORE, consistency: 'strong' });
+    const oldAuthData = await oldAuth.get('auth', { type: 'json', consistency: 'strong' }) || {};
+    await newAuth.setJSON('auth', upgradeAuth(oldAuthData), { onlyIfNew: true });
+    const progress = oldAuthData.progress || {};
+    const reads = oldAuthData.notificationReads || {};
+    const pStore = progressStore();
+    for (const user of arr(oldAuthData.users)) {
+      const current = progress[user.id] || {};
+      await pStore.setJSON(`user:${user.id}`, {
+        ...structuredClone(defaultProgress),
+        ...current,
+        resources: current.resources || {},
+        modules: current.modules || {},
+        courses: current.courses || {},
+        quizAttempts: current.quizAttempts || {},
+        notificationReads: reads[user.id] || {},
+      }, { onlyIfNew: true });
     }
   }
-  return { auth, user, session, tokenHash };
+
+  const newMeta = {
+    schemaVersion: 4,
+    migratedAt: now(),
+    revisions: Object.fromEntries(COLLECTIONS.map(name => [name, 1])),
+    updatedAt: Object.fromEntries(COLLECTIONS.map(name => [name, now()])),
+  };
+  await store.setJSON('meta', newMeta, { onlyIfNew: true });
+  return (await store.get('meta', { type: 'json', consistency: 'strong' })) || newMeta;
 }
 
-export function needUser(user) {
-  if (!user) throw Object.assign(new Error('Please sign in.'), { status: 401 });
+export async function readCollection(name) {
+  await ensureMigrated();
+  if (!COLLECTIONS.includes(name)) throw new Error(`Unknown collection: ${name}`);
+  return (await contentStore().get(name, { type: 'json', consistency: 'strong' })) || [];
 }
 
-export function needEditor(user) {
-  needUser(user);
-  if (!['editor', 'admin'].includes(user.role)) throw Object.assign(new Error('Editor access required.'), { status: 403 });
+export async function readCollections(names = COLLECTIONS) {
+  await ensureMigrated();
+  const selected = names.filter(name => COLLECTIONS.includes(name));
+  const values = await Promise.all(selected.map(name => readCollection(name)));
+  return Object.fromEntries(selected.map((name, index) => [name, values[index]]));
 }
 
-export function needAdmin(user) {
-  needUser(user);
-  if (user.role !== 'admin') throw Object.assign(new Error('Admin access required.'), { status: 403 });
-}
-
-export async function logoutSession(tokenHash) {
-  if (!tokenHash) return;
-  await mutateAuth(auth => {
-    delete auth.sessions[tokenHash];
-  });
-}
-
-export async function enforceRateLimit(scope, identity, limit, windowMs, lockoutMs = 0) {
-  const store = rateStore();
-  const key = `${scope}:${sha256(identity).slice(0, 40)}`;
+async function mutateMeta(collection) {
+  const store = contentStore();
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    const stored = await store.getWithMetadata(key, { type: 'json', consistency: 'strong' });
-    const data = stored?.data ?? null;
-    const etag = stored?.etag ?? null;
-    const timestamp = Date.now();
-    const record = data || { count: 0, windowStartedAt: timestamp, lockedUntil: 0 };
-    if (record.lockedUntil > timestamp) {
-      const seconds = Math.ceil((record.lockedUntil - timestamp) / 1000);
-      throw Object.assign(new Error(`Too many attempts. Try again in ${seconds} seconds.`), { status: 429, retryAfter: seconds });
-    }
-    if (timestamp - record.windowStartedAt >= windowMs) {
-      record.count = 0;
-      record.windowStartedAt = timestamp;
-    }
-    record.count += 1;
-    if (record.count > limit && lockoutMs) record.lockedUntil = timestamp + lockoutMs;
-    const write = await store.setJSON(key, record, etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
-    if (!write.modified) continue;
-    if (record.count > limit) {
-      const seconds = lockoutMs ? Math.ceil(lockoutMs / 1000) : Math.ceil((windowMs - (timestamp - record.windowStartedAt)) / 1000);
-      throw Object.assign(new Error('Too many requests. Please try again later.'), { status: 429, retryAfter: seconds });
-    }
-    return { remaining: Math.max(0, limit - record.count) };
+    const record = await store.getWithMetadata('meta', { type: 'json', consistency: 'strong' });
+    const data = record?.data ?? null;
+    const etag = record?.etag ?? null;
+    const meta = data || { schemaVersion: 4, revisions: {}, updatedAt: {} };
+    meta.schemaVersion = 4;
+    meta.revisions ||= {};
+    meta.updatedAt ||= {};
+    meta.revisions[collection] = Number(meta.revisions[collection] || 0) + 1;
+    meta.updatedAt[collection] = now();
+    const result = await store.setJSON('meta', meta, etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
+    if (result?.modified !== false) return meta;
   }
-  throw Object.assign(new Error('Rate-limit check conflicted. Please retry.'), { status: 409 });
+  throw Object.assign(new Error('The workspace changed at the same time. Please retry.'), { status: 409 });
 }
 
-export async function resetRateLimit(scope, identity) {
-  const key = `${scope}:${sha256(identity).slice(0, 40)}`;
-  await rateStore().delete(key);
+export async function mutateCollection(name, mutator) {
+  await ensureMigrated();
+  if (!COLLECTIONS.includes(name)) throw new Error(`Unknown collection: ${name}`);
+  const store = contentStore();
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const record = await store.getWithMetadata(name, { type: 'json', consistency: 'strong' });
+    const data = record?.data ?? null;
+    const etag = record?.etag ?? null;
+    const current = structuredClone(data || []);
+    const result = await mutator(current);
+    const next = result?.value ?? current;
+    const write = await store.setJSON(name, next, etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
+    if (write?.modified !== false) {
+      await mutateMeta(name);
+      return { value: next, result: result?.result };
+    }
+  }
+  throw Object.assign(new Error('This record was changed by someone else. Refresh and try again.'), { status: 409 });
 }
 
-export function authStatePayload(user) {
-  return { user: publicUser(user) };
+export async function readMeta() {
+  await ensureMigrated();
+  return (await contentStore().get('meta', { type: 'json', consistency: 'strong' })) || { schemaVersion: 4, revisions: {}, updatedAt: {} };
+}
+
+export async function readAuth() {
+  await ensureMigrated();
+  return (await authStore().get('auth', { type: 'json', consistency: 'strong' })) || structuredClone(defaultAuth);
+}
+
+export async function mutateAuth(mutator) {
+  await ensureMigrated();
+  const store = authStore();
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const record = await store.getWithMetadata('auth', { type: 'json', consistency: 'strong' });
+    const data = record?.data ?? null;
+    const etag = record?.etag ?? null;
+    const auth = { ...structuredClone(defaultAuth), ...(data || {}) };
+    auth.users ||= [];
+    auth.sessions ||= {};
+    auth.verificationTokens ||= {};
+    auth.resetTokens ||= {};
+    auth.mfaChallenges ||= {};
+    auth.quizSessions ||= {};
+    auth.passwordResetRequests ||= [];
+    auth.invites ||= [];
+    const result = await mutator(auth);
+    const write = await store.setJSON('auth', auth, etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
+    if (write?.modified !== false) return { auth, result };
+  }
+  throw Object.assign(new Error('Account data changed at the same time. Please retry.'), { status: 409 });
+}
+
+export async function readProgress(userId) {
+  await ensureMigrated();
+  const value = await progressStore().get(`user:${userId}`, { type: 'json', consistency: 'strong' });
+  return {
+    ...structuredClone(defaultProgress),
+    ...(value || {}),
+    resources: value?.resources || {},
+    modules: value?.modules || {},
+    courses: value?.courses || {},
+    quizAttempts: value?.quizAttempts || {},
+    notificationReads: value?.notificationReads || {},
+  };
+}
+
+export async function mutateProgress(userId, mutator) {
+  const store = progressStore();
+  const key = `user:${userId}`;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const record = await store.getWithMetadata(key, { type: 'json', consistency: 'strong' });
+    const data = record?.data ?? null;
+    const etag = record?.etag ?? null;
+    const progress = {
+      ...structuredClone(defaultProgress),
+      ...(data || {}),
+      resources: data?.resources || {},
+      modules: data?.modules || {},
+      courses: data?.courses || {},
+      quizAttempts: data?.quizAttempts || {},
+      notificationReads: data?.notificationReads || {},
+    };
+    const result = await mutator(progress);
+    const write = await store.setJSON(key, progress, etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
+    if (write?.modified !== false) return { progress, result };
+  }
+  throw Object.assign(new Error('Learning progress changed at the same time. Please retry.'), { status: 409 });
 }
