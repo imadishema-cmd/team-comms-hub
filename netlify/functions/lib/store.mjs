@@ -152,7 +152,7 @@ async function mutateMeta(collection) {
     meta.revisions[collection] = Number(meta.revisions[collection] || 0) + 1;
     meta.updatedAt[collection] = now();
     const result = await store.setJSON('meta', meta, etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
-    if (result.modified) return meta;
+    if (result?.modified !== false) return meta;
   }
   throw Object.assign(new Error('The workspace changed at the same time. Please retry.'), { status: 409 });
 }
@@ -169,7 +169,7 @@ export async function mutateCollection(name, mutator) {
     const result = await mutator(current);
     const next = result?.value ?? current;
     const write = await store.setJSON(name, next, etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
-    if (write.modified) {
+    if (write?.modified !== false) {
       await mutateMeta(name);
       return { value: next, result: result?.result };
     }
@@ -205,7 +205,7 @@ export async function mutateAuth(mutator) {
     auth.invites ||= [];
     const result = await mutator(auth);
     const write = await store.setJSON('auth', auth, etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
-    if (write.modified) return { auth, result };
+    if (write?.modified !== false) return { auth, result };
   }
   throw Object.assign(new Error('Account data changed at the same time. Please retry.'), { status: 409 });
 }
@@ -242,7 +242,7 @@ export async function mutateProgress(userId, mutator) {
     };
     const result = await mutator(progress);
     const write = await store.setJSON(key, progress, etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
-    if (write.modified) return { progress, result };
+    if (write?.modified !== false) return { progress, result };
   }
   throw Object.assign(new Error('Learning progress changed at the same time. Please retry.'), { status: 409 });
 }
